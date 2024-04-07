@@ -9,9 +9,16 @@ DATE_FORMAT = '%Y-%m-%d'
 
 # Initializes a cache to store the values of the share_value
 $share_value_cache = {}
+$fund_ids = {
+  'risky_norris' => '186',
+  'moderate_pitt' => '187',
+  'conservative_clooney' => '188',
+  'very_conservative_streep' => '15077'
+}
 
 # Obtain the value of the share_value, using cache
-def get_fund_value(fund_id, target_date_str, max_months = MAX_MONTHS_SEARCH)
+def get_fund_value(fund, target_date_str, max_months = MAX_MONTHS_SEARCH)
+  fund_id = $fund_ids[fund]
   # Generates a unique key for the cache
   cache_key = "#{fund_id}_#{target_date_str}"
 
@@ -41,6 +48,7 @@ def get_fund_value(fund_id, target_date_str, max_months = MAX_MONTHS_SEARCH)
       
       if data_range && data_range['data'] && !data_range['data'].empty?
         closest_entry = data_range['data'].min_by { |entry| (Date.parse(entry['attributes']['date']) - target_date).abs }
+        puts "El fondo #{fund} no fue encontrado en la fecha #{target_date_str}, la mas cernana es: #{closest_entry['attributes']['date']}"
         if closest_entry
           # Cache and return
           $share_value_cache[cache_key] = closest_entry['attributes']['price']
@@ -51,18 +59,18 @@ def get_fund_value(fund_id, target_date_str, max_months = MAX_MONTHS_SEARCH)
   end
 
   # If it does not find a value, it prints a message and returns nil
-  puts "No se encontró un valor para el fondo #{fund_id} cerca de la fecha #{target_date_str}."
+  puts "No se encontró un valor para el fondo #{fund} cerca de la fecha #{target_date_str}."
   $share_value_cache[cache_key] = nil
   return nil
 end
 
 # Calculate the profit of a portfolio
-def calculate_gain_for_portfolio(portfolio, start_date, end_date, initial_amount, fund_ids)
+def calculate_gain_for_portfolio(portfolio, start_date, end_date, initial_amount)
   final_amount = initial_amount
 
   portfolio.each do |fund, weight|
-    start_value = get_fund_value(fund_ids[fund], start_date)
-    end_value = get_fund_value(fund_ids[fund], end_date)
+    start_value = get_fund_value(fund, start_date)
+    end_value = get_fund_value(fund, end_date)
     if start_value && end_value
       # Calculates fund growth
       growth_rate = end_value.to_f / start_value
@@ -98,20 +106,13 @@ initial_amount = ARGV[2] ? ARGV[2].to_i : default_initial_amount
 start_date_api = Date.strptime(start_date, '%d/%m/%Y').strftime(DATE_FORMAT)
 end_date_api = Date.strptime(end_date, '%d/%m/%Y').strftime(DATE_FORMAT)
 
-fund_ids = {
-  'risky_norris' => '186',
-  'moderate_pitt' => '187',
-  'conservative_clooney' => '188',
-  'very_conservative_streep' => '15077'
-}
-
 # Determine the best portfolio
 best_gain = 0
 best_portfolio_index = nil
 best_portfolio = nil
 
 portfolios.each_with_index do |portfolio, index|
-  gain = calculate_gain_for_portfolio(portfolio, start_date_api, end_date_api, initial_amount, fund_ids)
+  gain = calculate_gain_for_portfolio(portfolio, start_date_api, end_date_api, initial_amount)
   
   if gain and (gain > best_gain)
     best_gain = gain
